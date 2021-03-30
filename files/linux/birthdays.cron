@@ -1,0 +1,2 @@
+# Programacion para la ejecucion del script birthdays
+00 08,20 * * * pi /usr/bin/python3.5 /opt/alfred/bin/modules/mod_birthdays.py

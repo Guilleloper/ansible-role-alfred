@@ -1,0 +1,176 @@
+---
+- name: System group
+  group:
+    name: "{{ alfred__group_name }}"
+    gid: "{{ alfred__group_id }}"
+
+- name: System user
+  user:
+    name: "{{ alfred__user_name }}"
+    uid: "{{ alfred__user_id }}"
+    group: "{{ alfred__group_name }}"
+    groups: docker
+    home: "{{ alfred__user_home }}"
+    shell: "{{ alfred__user_shell }}"
+
+- name: Ansible modules dependencies
+  apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: yes
+  loop:
+    - python3-pip=9.0.1-2+rpt2
+    - virtualenv=15.1.0+ds-1
+
+- name: System dependencies
+  apt:
+    name: "{{ packages }}"
+    state: present
+    update_cache: no
+  vars:
+    packages:
+      - taskwarrior=2.5.1+dfsg-3
+      - jq=1.5+dfsg-1.3
+      - git
+
+- name: PiP dependencies
+  pip:
+    name:
+      - python-telegram-bot==10.1.0
+      - requests==2.12.4
+      - beautifulsoup4==4.6.0
+      - graphyte==1.4
+    state: present
+
+- name: Folders
+  file:
+    state: directory
+    path: "{{ item }}"
+    owner: "{{ alfred__user_name }}"
+    group: "{{ alfred__group_name }}"
+    mode: 0755
+  when:
+    - item != "/tmp"
+    - item != "/var/tmp"
+  loop:
+    - "{{ alfred__path_logs }}"
+    - "{{ alfred__path_tmp }}"
+    - "{{ alfred__linux_path_main }}"
+    - "{{ alfred__linux_path_main }}/bin"
+    - "{{ alfred__linux_path_main }}/bin/modules"
+    - "{{ alfred__linux_path_main }}/config"
+    - "{{ alfred__linux_path_main }}/data"
+
+- name: Log files
+  copy:
+    content: ""
+    dest: "{{ item }}"
+    force: no
+    owner: "{{ alfred__user_name }}"
+    group: "{{ alfred__group_name }}"
+    mode: 0644
+  with_items:
+    - "{{ alfred__log_default }}"
+    - "{{ alfred__log_events }}"
+    - "{{ alfred__log_birthdays }}"
+    - "{{ alfred__log_amazon }}"
+    - "{{ alfred__log_amazon_user_agent_stats_hit }}"
+    - "{{ alfred__log_amazon_user_agent_stats_fail }}"
+
+- name: Set variable for Logrotate Ansible template
+  set_fact:
+    alfred_log_files:
+      - "{{ alfred__log_default }}"
+      - "{{ alfred__log_events }}"
+      - "{{ alfred__log_birthdays }}"
+      - "{{ alfred__log_amazon }}"
+
+- name: Logrotate config file
+  template: 
+    src: alfred.logrotate.j2
+    dest: /etc/logrotate.d/alfred
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Git repository download
+  git:
+    repo: "https://{{ alfred__git_user }}:{{ alfred__git_pass }}@{{ alfred__git_server }}/{{ alfred__git_repo }}"
+    dest: "{{ alfred__path_tmp }}/alfred"
+    version: "{{ alfred__git_version }}"
+    force: yes
+  check_mode: no
+  changed_when: False
+
+- name: Configuration setting (Bot settings)
+  shell: |
+    jq '.DEFAULT.BOT_TOKEN="{{ alfred__bot_token }}"' {{ alfred__path_tmp }}/alfred/config/config.json > {{ alfred__path_tmp }}/alfred/config/config.tmp
+    jq '.DEFAULT.CLIENT_IDS=["{{ alfred__bot_client_ids[0] }}", "{{ alfred__bot_client_ids[1] }}"]' {{ alfred__path_tmp }}/alfred/config/config.tmp > {{ alfred__path_tmp }}/alfred/config/config.json
+  check_mode: no
+  changed_when: False
+
+- name: Configuration settings (Log and data locations)
+  shell: |
+    jq '.DEFAULT.LOG_FILE="{{ alfred__log_default }}"' {{ alfred__path_tmp }}/alfred/config/config.json > {{ alfred__path_tmp }}/alfred/config/config.tmp
+    jq '.EVENTS.LOG_FILE="{{ alfred__log_events }}"' {{ alfred__path_tmp }}/alfred/config/config.tmp > {{ alfred__path_tmp }}/alfred/config/config.json
+    jq '.BIRTHDAYS.LOG_FILE="{{ alfred__log_birthdays }}"' {{ alfred__path_tmp }}/alfred/config/config.json > {{ alfred__path_tmp }}/alfred/config/config.tmp
+    jq '.AMAZON.LOG_FILE="{{ alfred__log_amazon }}"' {{ alfred__path_tmp }}/alfred/config/config.tmp > {{ alfred__path_tmp }}/alfred/config/config.json
+    jq '.EVENTS.DB_FILE="{{ alfred__path_data }}/events.json"' {{ alfred__path_tmp }}/alfred/config/config.json > {{ alfred__path_tmp }}/alfred/config/config.tmp
+    jq '.BIRTHDAYS.DB_FILE="{{ alfred__path_data }}/birthdays.json"' {{ alfred__path_tmp }}/alfred/config/config.tmp > {{ alfred__path_tmp }}/alfred/config/config.json
+    jq '.AMAZON.DB_FILE="{{ alfred__path_data }}/amazon.json"' {{ alfred__path_tmp }}/alfred/config/config.json > {{ alfred__path_tmp }}/alfred/config/config.tmp
+  check_mode: no
+  changed_when: False
+
+- name: Configuration settings (Metrics backend)
+  shell: |
+    jq '.AMAZON.GRAPHITE_SERVER="{{ alfred__tsdb_server }}"' {{ alfred__path_tmp }}/alfred/config/config.tmp > {{ alfred__path_tmp }}/alfred/config/config.json
+  check_mode: no
+  changed_when: False
+
+- name: Locate the downloaded files
+  copy:
+    src: "{{ item.source }}" 
+    remote_src: yes
+    dest: "{{ item.dest }}"
+    owner: "{{ alfred__user_name }}"
+    group: "{{ alfred__group_name }}"
+    mode: 0644
+  with_items:
+    - { source: "{{ alfred__path_tmp }}/alfred/bin/alfred.py", dest: "{{ alfred__linux_path_main }}/bin/alfred.py" }
+    - { source: "{{ alfred__path_tmp }}/alfred/bin/modules/__init__.py", dest: "{{ alfred__linux_path_main }}/bin/modules/__init__.py" }
+    - { source: "{{ alfred__path_tmp }}/alfred/bin/modules/mod_events.py", dest: "{{ alfred__linux_path_main }}/bin/modules/mod_events.py" }
+    - { source: "{{ alfred__path_tmp }}/alfred/bin/modules/mod_birthdays.py", dest: "{{ alfred__linux_path_main }}/bin/modules/mod_birthdays.py" }
+    - { source: "{{ alfred__path_tmp }}/alfred/bin/modules/mod_amazon.py", dest: "{{ alfred__linux_path_main }}/bin/modules/mod_amazon.py" }
+    - { source: "{{ alfred__path_tmp }}/alfred/config/config.json", dest: "{{ alfred__linux_path_main }}/config/config.json" }
+  notify:
+    - Restart Systemd service
+
+- name: Delete the downloaded git repository
+  file:
+    path: "{{ alfred__path_tmp }}/alfred"
+    state: absent
+  check_mode: no
+  changed_when: False
+
+- name: Systemd service file
+  copy:
+    src: linux/alfred.service
+    dest: /lib/systemd/system/alfred.service
+    owner: root
+    group: root
+    mode: 0644
+  notify:
+    - Restart Systemd service
+
+- name: Locate Cron files
+  copy:
+    src: "{{ item.source }}"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: root
+    mode: 0644
+  with_items:
+    - { source: "linux/events.cron", dest: "/etc/cron.d/events" }
+    - { source: "linux/birthdays.cron", dest: "/etc/cron.d/birthdays" }
+    - { source: "linux/amazon.cron", dest: "/etc/cron.d/amazon" }
+...

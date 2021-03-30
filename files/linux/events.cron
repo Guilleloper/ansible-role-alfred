@@ -1,0 +1,2 @@
+# Programacion para la ejecucion del script events
+00 10,22 * * * pi /usr/bin/python3.5 /opt/alfred/bin/modules/mod_events.py

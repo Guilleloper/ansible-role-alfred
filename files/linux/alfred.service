@@ -1,0 +1,13 @@
+[Unit]
+Description=Alfred, the Telegram Bot
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3.5 /opt/alfred/bin/alfred.py
+User=pi
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

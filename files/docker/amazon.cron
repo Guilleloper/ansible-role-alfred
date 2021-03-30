@@ -1,0 +1,2 @@
+# Programacion para la ejecucion del script amazon
+00 09,21 * * * alfred docker exec alfred python /alfred/bin/modules/mod_amazon.py >/dev/null

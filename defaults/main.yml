@@ -1,0 +1,46 @@
+---
+# Deployment mode
+alfred__deployment_mode: "docker"
+
+# System user and group
+alfred__group_name: "alfred"
+alfred__group_id: 10001
+alfred__user_name: "alfred"
+alfred__user_id: 10001
+alfred__user_home: "/home/alfred"
+alfred__user_shell: "/usr/sbin/nologin"
+
+# Common locations
+alfred__path_logs: "/var/log/alfred"
+alfred__path_data: "/var/lib/alfred"
+alfred__path_tmp: "/var/tmp"
+
+# Locations for Docker deployment
+alfred__docker_tag: "latest"
+alfred__docker_path_config: "/etc/alfred"
+
+# Locations for Linux deployment
+alfred__linux_path_main: "/opt/alfred"
+
+# Log files for Linux deployment
+alfred__log_default: "{{ alfred__path_logs }}/alfred.log"
+alfred__log_events: "{{ alfred__log_default }}"
+alfred__log_birthdays: "{{ alfred__log_default }}"
+alfred__log_amazon: "{{ alfred__log_default }}"
+alfred__log_amazon_user_agent_stats_hit: "{{ alfred__path_tmp }}/alfred_user_agent_hits.stats"
+alfred__log_amazon_user_agent_stats_fail: "{{ alfred__path_tmp }}/alfred_user_agent_fails.stats"
+
+# Git
+alfred__git_server: "github.com"
+alfred__git_repo: "Guilleloper/alfred.git"
+alfred__git_user: "changeme"
+alfred__git_pass: "changeme"
+alfred__git_version: "master"
+
+# Metrics backend
+alfred__tsdb_server: "127.0.0.1"
+
+# Telegram bot
+alfred__bot_token: "changeme"
+alfred__bot_client_ids: "changeme"
+...

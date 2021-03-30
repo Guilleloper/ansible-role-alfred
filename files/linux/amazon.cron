@@ -1,0 +1,2 @@
+# Programacion para la ejecucion del script amazon
+00 09,21 * * * pi /usr/bin/python3.5 /opt/alfred/bin/modules/mod_amazon.py
